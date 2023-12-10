@@ -30,12 +30,26 @@ Feature:
 #include <avr/sleep.h>
 #include "mem_free.h"
 
-//define task handles
-TaskHandle_t majorTaskHandler;
 
+/// CONSTANTS 
+const uint16_t SmallStackSize=64*2;
+
+
+
+//define task handles
+TaskHandle_t majorTaskHandler, blinkTaskHandler;
+
+const TaskHandle_t* listOfHandler2Monitor[]={
+      &majorTaskHandler, &blinkTaskHandler     
+};
+
+enum DeckMode: uint8_t { Init=0, WOPR=1, };
+DeckMode CurrentMode=Init;
+const uint8_t BlinkLed=13;
 
 // CHECK ON MEGA The I2C pins on the board are 20 and 21.
 // Ref lib https://github.com/johnrickman/LiquidCrystal_I2C 
+
 #include <LiquidCrystal_I2C.h>
 LiquidCrystal_I2C lcd(0x3F,20,4); // set the LCD address to 0x27 for a 20 chars and 4 line display
 
@@ -155,7 +169,7 @@ void wakeUp(){
   detachInterrupt(digitalPinToInterrupt(wakeupButton));
 }
 
-void lcdInit(){
+inline void lcdInit(){
   lcd.init(); 
   lcd.backlight();
   //lcd.autoscroll();
@@ -219,33 +233,59 @@ inline bool checkForSleep(){
 }
 
 
-enum DeckMode: uint8_t { Init=0, WOPR=1, };
+// LOW LEVEL FUNCTIONS
+inline void cleanupRow(uint8_t r){
+      lcd.setCursor(0,r);
+      // 20 char line cleanup
+      lcd.print(F("                    "));
+      lcd.setCursor(0,r);
+}
 
-DeckMode CurrentMode=Init;
-
-///////// TASKS
-void TaskSystemStatus(void *pvParameters){
-  delay(2000);
+///////// TASKS 
+void TaskBlink(void *_unused){
+  pinMode(BlinkLed, OUTPUT);
   for(;;){
-    // The list printing is a bit bugged, because these handlers are pointers
-    // and if a task is destroyed the pointer could be invalidated
-    TaskHandle_t* listOfHandler2Monitor[]={
-      &majorTaskHandler     
-    };
-    // lcd.clear();
+    digitalWrite(BlinkLed, HIGH);    
+    // FIXME: Lcd access is not thread safe, a special thread must be set-up to access to this resource in a consistent way
+    //cleanupRow(1);
+    //lcd.print("Blink");
+    delay(100);
+    
+    digitalWrite(BlinkLed, LOW);    
+    // cleanupRow(1);
+    // lcd.print("$Blink");
+    delay(100);
 
-    lcd.setCursor(0,3);
+  }
+}
+/**
+ * This tasks do two things: show a REPORT AND Manage LCD Screen
+ * Tasks can ask to show things on the first 3 row, last row is used for system status
+ */
+void TaskSystemStatus(void *pvParameters){
+  const int delayMs=1200;
+  for(;;){
 
+    // This task uses 2 lines to present current task and ticks
+    // FIXME: Reduce to 1 line
+    
+    for(auto handler: listOfHandler2Monitor){
+      cleanupRow(3);      
+      lcd.print(pcTaskGetName(*handler)); 
+      lcd.print(F(" -> "));
+      lcd.print(uxTaskGetStackHighWaterMark(*handler));
+      lcd.print(F(" "));
+      delay(delayMs);
+    }
+
+    // Last line present status
+    // cleanupRow(3);
+    lcd.setCursor(0,3); // Optimized because this row is always very long
     lcd.print("Tsks:");
     lcd.print(uxTaskGetNumberOfTasks());
-
     lcd.print(" Ticks:");
     lcd.print(xTaskGetTickCount());
-    lcd.backlight();
-    //delay(1000);
-    //lcd.noBacklight();
-    //vTaskDelay(portTICK_PERIOD_MS*2);
-    vTaskDelay( (1* 1000)/  portTICK_PERIOD_MS);
+    delay(delayMs);
   }
 }
 //////////////////////////////////////////////////////////////////////////////
@@ -253,7 +293,7 @@ void TaskSystemStatus(void *pvParameters){
 void setup()
 {
   lcdInit();
-
+  lcd.backlight();
   // initialize the digital pin as an output.  
   // pinMode(aliveLed, OUTPUT);
   // pinMode(wakeupButton, INPUT_PULLUP);
@@ -269,12 +309,13 @@ void setup()
   // }
   lcd.print(".");
   xTaskCreate(TaskSystemStatus   
-      , NULL
+      , "SysStat"
       , 200
       , NULL
       , configMAX_PRIORITIES-1  // Highest priority to better track down memory
       , &majorTaskHandler /*NULL*/);
 
+  xTaskCreate(TaskBlink,"BLK",SmallStackSize,NULL,0, &blinkTaskHandler);
   lcd.print(".");
   vTaskStartScheduler();
 }

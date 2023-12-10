@@ -1,0 +1,25 @@
+{
+    "configurations": [
+        {
+            "name": "Mac",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "/Users/jj/Library/Arduino15/packages/arduino/tools/avr-gcc/7.3.0-atmel3.6.1-arduino7/avr/include/",
+                "/Users/jj/Library/Arduino15/packages/arduino/hardware/avr/1.8.6/cores/arduino/",
+                "/Users/jj/Library/Arduino15/packages/arduino/hardware/avr/1.8.6/libraries/Wire/src/*",
+                "/Users/jj/Library/Arduino15/packages/arduino/hardware/renesas_uno/1.0.5/cores/arduino/api/",
+                "/Users/jj/Library/Arduino15/packages/arduino/hardware/avr/1.8.6/variants/mega/"
+            ],
+            "defines": [],
+            "macFrameworkPath": [
+                "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/System/Library/Frameworks"
+            ],
+            "compilerPath": "/usr/bin/clang",
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "macos-clang-arm64",
+            "configurationProvider": "ms-vscode.makefile-tools"
+        }
+    ],
+    "version": 4
+}

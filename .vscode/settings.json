@@ -9,5 +9,7 @@
         "string_view": "cpp",
         "unordered_map": "cpp",
         "vector": "cpp"
-    }
+    },
+    "makefile.makefilePath": "./basic-deck/Makefile",
+    "makefile.makeDirectory": "./basic-deck"
 }

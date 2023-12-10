@@ -25,10 +25,14 @@ Feature:
 
 // #define DEBUG_LOG yeppa
 #define LCD_DEBUG_LOG yeppa
-
+#include "Arduino_FreeRTOS.h"
 #include "jj-log.h"
 #include <avr/sleep.h>
 #include "mem_free.h"
+
+//define task handles
+TaskHandle_t majorTaskHandler;
+
 
 // CHECK ON MEGA The I2C pins on the board are 20 and 21.
 // Ref lib https://github.com/johnrickman/LiquidCrystal_I2C 
@@ -52,13 +56,6 @@ char runningMode = 1; // 1 = Start running, 0 = Start Sleeping
 
 int stripeLeds[] = { 12, 13,   9  };
 const int stripeLength=sizeof(stripeLeds)/sizeof(stripeLeds[0]);
-
-#include <Eventually.h>
-EvtManager mgr;
-
-
-
-
 
 const int dual_mode_period=5;
 /**
@@ -161,11 +158,16 @@ void wakeUp(){
 void lcdInit(){
   lcd.init(); 
   lcd.backlight();
-  lcd.setCursor(0,0);
-  lcd.print("2021 LD v1.1 ");
-  lcd.print(stripeLength);
-  
-  say("Ready.");
+  //lcd.autoscroll();
+  lcd.home(); //.setCursor(0,0);
+  lcd.blink_on();
+  //lcd.cursor_on();
+  lcd.print(F("2024 ArdeK "));  
+  // CR does not work and jumps from line 0 to line 3 and wrap back on line 2
+  // lcd.print(F("Verylong line printing test should workz"));
+  lcd.setCursor(0,3);
+  lcd.print("Booting");
+  //say("Ready.");
 }
 
 
@@ -214,147 +216,69 @@ inline bool checkForSleep(){
   }else{
     return false;
   }
-  
 }
 
-/** Collaborative delay function.
- *  Make a double check for giving
- */
-inline void my_delay(int millis) {
-  if(millis > 10 ){
-    checkForSleep();
-    delay(millis/2);
-    checkForSleep();
-    delay(millis/2);
-  }else{
-    delay(millis);
+
+enum DeckMode: uint8_t { Init=0, WOPR=1, };
+
+DeckMode CurrentMode=Init;
+
+///////// TASKS
+void TaskSystemStatus(void *pvParameters){
+  delay(2000);
+  for(;;){
+    // The list printing is a bit bugged, because these handlers are pointers
+    // and if a task is destroyed the pointer could be invalidated
+    TaskHandle_t* listOfHandler2Monitor[]={
+      &majorTaskHandler     
+    };
+    // lcd.clear();
+
+    lcd.setCursor(0,3);
+
+    lcd.print("Tsks:");
+    lcd.print(uxTaskGetNumberOfTasks());
+
+    lcd.print(" Ticks:");
+    lcd.print(xTaskGetTickCount());
+    lcd.backlight();
+    //delay(1000);
+    //lcd.noBacklight();
+    //vTaskDelay(portTICK_PERIOD_MS*2);
+    vTaskDelay( (1* 1000)/  portTICK_PERIOD_MS);
   }
 }
-
-void loopold()
-{
-  // We can start in any sleep state and all will work
-
-  // Fade cycle
-  if (runningMode == 1 /** Running? */)
-  {   
-    
-    const int minBright = 0;    
-    const int fadeAmount = 64; // how many points to fade the LED by
-    const int maxBright = 255 ;
-
-
-    int brightness = minBright; // how bright the LED is
-    
-    
-    for(int dimezzer=1; dimezzer <= 64; dimezzer*=2 ){
-      for(int i=0; i<stripeLength; i++) {
-        switch(i){
-          case 0:
-            brightness=64  / dimezzer ;
-            break;
-          case 1:
-            brightness=128 / dimezzer ;
-            break;
-          case 2:
-            brightness=256 / dimezzer;
-            break;
-          default:
-            brightness=0;
-            break;
-          
-        }
-        analogWrite(stripeLeds[i], brightness);
-        my_delay(DelayTime);      
-      }
-    }
-
-    for(int expander=64; expander >1; expander/=2 ){
-      for(int i=0; i<stripeLength; i++) {
-        switch(i){
-          case 0:
-            brightness=1 * expander ;
-            break;
-          case 1:
-            brightness=3 * expander ;
-            break;
-          case 2:
-            brightness=4 * expander ;
-            break;
-          default:
-            brightness=0;
-            break;
-          
-        }
-        analogWrite(stripeLeds[i], brightness);
-        my_delay(DelayTime);      
-      }
-    }
-
-    
-    say("Cycle ends");
-
-
-    // We must sleep ?
-    checkForSleep();
-    
-  }
-}
-
-
-bool blink1() {
-  static bool state=LOW;
-  state = !state; // Switch light states
-  digitalWrite( stripeLeds[0], state); // Display the state
-  digitalWrite( stripeLeds[1], state); // Display the state
-  digitalWrite( stripeLeds[2], state); // Display the state
-  return false; // Allow the event chain to continue
-}
-
-bool checkForSleep2(){
-  if(checkForSleep()==false){
-    say("No sleep yet");
-  }
-  return false;
-}
-
-bool statusMessages(){
-  String m=F("Run Stats:");
-  m.concat((float)(millis() / 1000));
-  sayLcdMsg(m);
-  return false;
-}
-
 //////////////////////////////////////////////////////////////////////////////
 // the setup routine runs once when you press reset:
 void setup()
 {
   lcdInit();
-  // initialize the digital pin as an output.
-  pinMode(aliveLed, OUTPUT);
-  pinMode(wakeupButton, INPUT_PULLUP);
 
-  for(int i=0; i<stripeLength; i++) {
-    pinMode(stripeLeds[i], OUTPUT);
-    analogWrite(stripeLeds[i], 0 );
-  }
+  // initialize the digital pin as an output.  
+  // pinMode(aliveLed, OUTPUT);
+  // pinMode(wakeupButton, INPUT_PULLUP);
 
-  if(runningMode == 1){
-    // if the initial state is 1 it means we are not sleeping so we must enable the interrupt
-    attachInterrupt(digitalPinToInterrupt(wakeupButton), sleepModeCheckCallback, CHANGE);
-  }
+  // for(int i=0; i<stripeLength; i++) {
+  //   pinMode(stripeLeds[i], OUTPUT);
+  //   analogWrite(stripeLeds[i], 0 );
+  // }
 
-  mgr.addListener(new EvtTimeListener(44, true,   (EvtAction)blink1)                 );
-  mgr.addListener(new EvtTimeListener(88, true,   (EvtAction)blink1)                 );
-  mgr.addListener(new EvtTimeListener(900, true,   (EvtAction)checkForSleep2)                 );
-  //mgr.addListener(new EvtTimeListener(5000, true,   (EvtAction)statusMessages)                 );
+  // if(runningMode == 1){
+  //   // if the initial state is 1 it means we are not sleeping so we must enable the interrupt
+  //   attachInterrupt(digitalPinToInterrupt(wakeupButton), sleepModeCheckCallback, CHANGE);
+  // }
+  lcd.print(".");
+  xTaskCreate(TaskSystemStatus   
+      , NULL
+      , 200
+      , NULL
+      , configMAX_PRIORITIES-1  // Highest priority to better track down memory
+      , &majorTaskHandler /*NULL*/);
 
-  #ifdef DEBUG_LOG
-    Serial.begin(9600);
-    l("2021 Led Dreams");
-  #endif    
+  lcd.print(".");
+  vTaskStartScheduler();
 }
-USE_EVENTUALLY_LOOP(mgr) // Use this instead of your loop() function.
+
 
 
 

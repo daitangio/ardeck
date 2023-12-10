@@ -49,7 +49,9 @@
 #define configCPU_CLOCK_HZ                  ( ( uint32_t ) F_CPU )          // This F_CPU variable set by the environment
 #define configMAX_PRIORITIES                4
 #define configIDLE_SHOULD_YIELD             1
-#define configMINIMAL_STACK_SIZE            ( 192 )
+// GG Redefined
+//#define configMINIMAL_STACK_SIZE            ( 192 )
+#define configMINIMAL_STACK_SIZE            ( 85 )
 #define configMAX_TASK_NAME_LEN             ( 8 )
 
 #define configQUEUE_REGISTRY_SIZE           0
@@ -68,7 +70,9 @@
 #define configSUPPORT_DYNAMIC_ALLOCATION    1
 #define configSUPPORT_STATIC_ALLOCATION     0
 
-#define configUSE_IDLE_HOOK                 1
+// GG Disable loop()
+//#define configUSE_IDLE_HOOK                 1
+#define configUSE_IDLE_HOOK                 0
 #define configUSE_TICK_HOOK                 0
 
 /* Delay definition - here, the user can choose which delay implementation is required.

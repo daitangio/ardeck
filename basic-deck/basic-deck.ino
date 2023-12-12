@@ -264,6 +264,7 @@ void TaskSystemStatus(void *pvParameters){
     // This task uses 2 lines to present current task and ticks
     // FIXME: Reduce to 1 line
     
+    lcd.updateDisplayQueue();
     for(auto handler: listOfHandler2Monitor){
       lcd.cleanupRow(3);      
       lcd.print(pcTaskGetName(*handler)); 

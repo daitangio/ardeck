@@ -50,8 +50,9 @@ const uint8_t BlinkLed=13;
 // CHECK ON MEGA The I2C pins on the board are 20 and 21.
 // Ref lib https://github.com/johnrickman/LiquidCrystal_I2C 
 
-#include <LiquidCrystal_I2C.h>
-LiquidCrystal_I2C lcd(0x3F,20,4); // set the LCD address to 0x27 for a 20 chars and 4 line display
+#include "ArdeckDisplay.h"
+
+ArdecDisplay lcd(0x3F,20,4); // set the LCD address to 0x27 for a 20 chars and 4 line display
 
 
 // Pin 13 has an LED connected on most Arduino boards.
@@ -233,13 +234,7 @@ inline bool checkForSleep(){
 }
 
 
-// LOW LEVEL FUNCTIONS
-inline void cleanupRow(uint8_t r){
-      lcd.setCursor(0,r);
-      // 20 char line cleanup
-      lcd.print(F("                    "));
-      lcd.setCursor(0,r);
-}
+
 
 ///////// TASKS 
 void TaskBlink(void *_unused){
@@ -270,7 +265,7 @@ void TaskSystemStatus(void *pvParameters){
     // FIXME: Reduce to 1 line
     
     for(auto handler: listOfHandler2Monitor){
-      cleanupRow(3);      
+      lcd.cleanupRow(3);      
       lcd.print(pcTaskGetName(*handler)); 
       lcd.print(F(" -> "));
       lcd.print(uxTaskGetStackHighWaterMark(*handler));
